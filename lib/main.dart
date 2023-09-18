@@ -6,8 +6,14 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
+
+
+List<String> expressedIn = [];
+List<String> measured = [];
+List<String> participatedIn = [];
+
+
 
 class PieChartWithLegend extends StatelessWidget {
   final List<Measurement> measurements;
@@ -22,39 +28,15 @@ class PieChartWithLegend extends StatelessWidget {
       width: 500, // Defina o tamanho desejado para o gráfico
       height: 500,
 
-      child: SfCircularChart(
-          legend: Legend(
-            isVisible: true,
-            position: LegendPosition.bottom,
-            overflowMode: LegendItemOverflowMode.wrap,
-            alignment: ChartAlignment.center,
-          ),
-        series: <CircularSeries>[
-          PieSeries<Measurement, String>(
+      child: SfCartesianChart(
+        // Initialize category axis
+        primaryXAxis: CategoryAxis(),
 
-
+        series: <ChartSeries>[
+          BarSeries<Measurement, String>(
             dataSource: measurements,
-              explode: true,
-            enableTooltip: true,
-            radius: '60%',
-
-
-            pointColorMapper:(Measurement data, _) => Color(((_+3.146546484116586414)*1196012116515619/841156*7*1.23).round()),
-
-
-
-              xValueMapper: (Measurement data, _) => data.measured,
+            xValueMapper: (Measurement data, _) => data.measured,
             yValueMapper: (Measurement data, _) => data.hasQualityValue,
-              dataLabelMapper: (Measurement data, _) => data.measured,
-            dataLabelSettings:   DataLabelSettings( showZeroValue: false,
-                isVisible: true,
-          // Avoid labels intersection
-          labelIntersectAction: LabelIntersectAction.shift,
-          labelPosition: ChartDataLabelPosition.outside,
-          connectorLineSettings: ConnectorLineSettings(
-              type: ConnectorType.curve, length: '25%')
-      ),
-
 
 
           ),
@@ -64,13 +46,6 @@ class PieChartWithLegend extends StatelessWidget {
 
   }
 }
-
-
-
-
-
-
-
 
 
 class Measurement {
@@ -96,6 +71,7 @@ class Measurement {
   }
 }
 void main() {
+
   runApp(MyApp());
 }
 
@@ -103,7 +79,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Mapa com Marcação',
+      title: 'MAPA COM PONTOS DE COLETA DE QUALIDADE DA AGUA DO RIO DOCE',
       home: MapScreen(),
     );
   }
@@ -114,25 +90,55 @@ class MapScreen extends StatefulWidget {
   _MapScreenState createState() => _MapScreenState();
 }
 
+String agent = '';
+ String expressedInApi = '';
+ String measuredApi = '';
+
 class _MapScreenState extends State<MapScreen> {
 
   final LatLng _markerLocation = const LatLng(-19.51064, -40.554916); // coordenadas da marcação
 
   List<LatLng> _locations = [];
   late String filter1Value = '';
-  late String agent = '';
-  late String expressedInApi = '';
-  late String measuredApi = '';
+
 
 
   @override
   void initState() {
     super.initState();
     _fetchLocations();
+    _fetchData();
   }
 
+
+  Future<void> _fetchData() async {
+    final url = 'http://localhost:5000/combo';
+
+
+    try {
+    final response = await http.get(Uri.parse(url));
+
+    if (response.statusCode == 200) {
+    // Decodifique a resposta JSON
+    final decodedData = json.decode(response.body);
+
+    // Preencha os arrays
+    expressedIn = List<String>.from(decodedData['expressedIn']);
+    measured = List<String>.from(decodedData['measured']);
+    participatedIn = List<String>.from(decodedData['participatedIn']);
+
+
+    }
+    else {
+    print('Erro na requisição: ${response.statusCode}');
+      }
+    } catch (e) {
+    print('Erro ao carregar os dados: $e');
+    }
+}
+
   void _fetchLocations() async {
-    final response = await http.get(Uri.parse('http://192.168.1.6:5000/points'));
+    final response = await http.get(Uri.parse('http://localhost:5000/points'));
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as List<dynamic>;
@@ -147,132 +153,43 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+
+
+
   MapController _mapController = MapController();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mapa com Marcação'),
+        title: const Text('AGUA DO RIO DOCE'),
       ),
       drawer: Drawer(
         child: ListView(
+
           padding: EdgeInsets.zero,
           children: [
             const DrawerHeader(
-              child: Text('Filtros'),
+
+              child: Text(
+                  'Filtros',
+                  style: TextStyle(
+
+                  fontSize: 50.0,  // Ajuste o tamanho do texto aqui
+                  color: Colors.white,
+              )),
               decoration: BoxDecoration(
+
                 color: Colors.blue,
               ),
             ),
+             DropdownMenuExample(),
+              SizedBox(height: 10),
 
-            ListTile(
-              title: Text('agent 1: $agent'),
-              onTap: () {
-                setState(() {
+            DropdownUnidadedeMedida(),
+            SizedBox(height: 10),
 
-                  agent = '';
-                });
-
-                showDialog(
-                  context: context,
-                  builder: (BuildContext context) {
-                    agent ='';
-                    return AlertDialog(
-                      title:  Text("Filtro 1: "),
-                      content: TextField(
-                        onChanged: (value) {
-                          setState(() {
-
-                            agent = ((value.isNotEmpty) ?  value: "null");
-                          });
-                        },
-                      ),
-                      actions: [
-                        TextButton(
-                          child: const Text('Fechar'),
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                          },
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
-            ),
-            ListTile(
-              title: Text('expressedInApi 1: $expressedInApi'),
-              onTap: () {
-                setState(() {
-
-                  expressedInApi = '';
-                });
-
-                showDialog(
-                  context: context,
-                  builder: (BuildContext context) {
-                    expressedInApi ='';
-                    return AlertDialog(
-                      title:  Text("expressedInApi 1: "),
-                      content: TextField(
-                        onChanged: (value) {
-                          setState(() {
-
-                            expressedInApi = ((value.isNotEmpty) ?  value: "null");
-                          });
-                        },
-                      ),
-                      actions: [
-                        TextButton(
-                          child: const Text('Fechar'),
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                          },
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
-            ),
-            ListTile(
-              title: Text('measuredApi 1: $measuredApi'),
-              onTap: () {
-                setState(() {
-
-                  measuredApi = '';
-                });
-
-                showDialog(
-                  context: context,
-                  builder: (BuildContext context) {
-                    measuredApi ='';
-                    return AlertDialog(
-                      title:  Text("measuredApi 1: "),
-                      content: TextField(
-                        onChanged: (value) {
-                          setState(() {
-
-                            measuredApi = ((value.isNotEmpty) ?  value: "null");
-                          });
-                        },
-                      ),
-                      actions: [
-                        TextButton(
-                          child: const Text('Fechar'),
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                          },
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
-            ),
-
-
+            DropdownQualidadeMedida(),
 
           ],
         ),
@@ -381,7 +298,7 @@ class _MapScreenState extends State<MapScreen> {
     expressedInApi= expressedInApi.isEmpty ? 'null': expressedInApi;
     measuredApi= measuredApi.isEmpty ? 'null': measuredApi;
 
-    final response = await http.get(Uri.parse('http://192.168.1.6:5000/filtro/${location.latitude}/${location.longitude}/${location.latitude}/${location.longitude}/$agent/$expressedInApi/$measuredApi'));
+    final response = await http.get(Uri.parse('http://localhost:5000/filtro/${location.latitude}/${location.longitude}/${location.latitude}/${location.longitude}/$agent/$expressedInApi/$measuredApi'));
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
@@ -391,6 +308,7 @@ class _MapScreenState extends State<MapScreen> {
       completer.complete(); // Completa o FutureBuilder para exibir o AlertDialog com os dados
 
       if (completer.isCompleted) {
+        Navigator.of(context).pop();
         showDialog(
 
           context: context,
@@ -408,7 +326,7 @@ class _MapScreenState extends State<MapScreen> {
                     Text('Media de Dados da API:'),
                     for (var measurement in measurementsMedia)
                       Text(
-                        'Medida: ${measurement.measured}\n'
+                        'Tipo de qualidade medida: ${measurement.measured}\n'
                             'Valor: ${measurement.hasQualityValue}\n',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
@@ -417,7 +335,7 @@ class _MapScreenState extends State<MapScreen> {
                     Text('Dados da API:'),
                     for (var measurement in measurements)
                       Text(
-                        'Medida: ${measurement.measured}\n'
+                        'Tipo de qualidade medida: ${measurement.measured}\n'
                             'Unidade: ${measurement.expressedIn}\n'
                             'Valor: ${measurement.hasQualityValue}\n'
                             'Data de início: ${measurement.hasBeginPointInXSDDateTimeStamp}\n',
@@ -570,9 +488,117 @@ class _MapScreenState extends State<MapScreen> {
   void _resetZoom() {
     _mapController.move(_markerLocation, 8);
     _fetchLocations();
+    _fetchData();
+
     build(context);
 
   }
 
 
 }
+
+const List<String> list = <String>['','One', 'Two', 'Three', 'Four'];
+
+
+
+class DropdownMenuExample extends StatefulWidget {
+  const DropdownMenuExample({super.key});
+
+  @override
+  State<DropdownMenuExample> createState() => _DropdownMenuExampleState();
+}
+
+class DropdownUnidadedeMedida extends StatefulWidget {
+
+  const DropdownUnidadedeMedida({super.key});
+
+  @override
+  State<DropdownUnidadedeMedida> createState() => _DropdownMenuUnidadedeMedida();
+}
+class DropdownQualidadeMedida extends StatefulWidget {
+
+  const DropdownQualidadeMedida({super.key});
+
+  @override
+  State<DropdownQualidadeMedida> createState() => _DropdownMenuQualidadeMedida();
+}
+
+class _DropdownMenuExampleState extends State<DropdownMenuExample> {
+  String dropdownValue = agent;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownMenu<String>(
+      initialSelection: agent,
+      width: 260,
+      enableFilter: true,
+      label: const Text('AGENTE RESPONSAVEL'),
+      onSelected: (String? value) {
+        // This is called when the user selects an item.
+        setState(() {
+          dropdownValue = value!;
+          agent =  value!;
+        });
+      },
+      dropdownMenuEntries: participatedIn.map<DropdownMenuEntry<String>>((String value) {
+        return DropdownMenuEntry<String>(value: value, label: value);
+      }).toList(),
+    );
+  }
+}
+
+
+class _DropdownMenuUnidadedeMedida extends State<DropdownUnidadedeMedida> {
+  String dropdownValue = expressedInApi;
+
+  @override
+  Widget build(BuildContext context) {
+
+    return DropdownMenu<String>(
+      initialSelection: expressedInApi,
+      width: 260,
+      enableFilter: true,
+      label: const Text('Unidade de Medida'),
+      onSelected: (String? value) {
+        // This is called when the user selects an item.
+        setState(() {
+          dropdownValue = value!;
+          expressedInApi = value!;
+        });
+      },
+      dropdownMenuEntries: expressedIn.map<DropdownMenuEntry<String>>((String value) {
+        return DropdownMenuEntry<String>(value: value, label: value);
+      }).toList(),
+    );
+  }
+}
+
+
+
+
+class _DropdownMenuQualidadeMedida extends State<DropdownQualidadeMedida> {
+  String dropdownValue = measuredApi;
+
+  @override
+  Widget build(BuildContext context) {
+
+    return DropdownMenu<String>(
+      initialSelection:measuredApi ,
+      width: 260,
+      enableFilter: true,
+      label: const Text('Qualidade Medida'),
+      onSelected: (String? value) {
+        // This is called when the user selects an item.
+        setState(() {
+          dropdownValue = value!;
+          measuredApi = value!;
+        });
+      },
+      dropdownMenuEntries: measured.map<DropdownMenuEntry<String>>((String value) {
+        return DropdownMenuEntry<String>(value: value, label: value);
+      }).toList(),
+    );
+  }
+}
+
+
